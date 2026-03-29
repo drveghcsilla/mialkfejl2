@@ -2,5 +2,5 @@ python-docx
 pypdf
 pillow
 pytesseract
-google-generativeai
+google-genai
 python-dotenv

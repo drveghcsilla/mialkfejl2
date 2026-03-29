@@ -1,0 +1,11 @@
+Meghatalmazás adatai:
+Meghatalmazott: Nagy Erzsébet
+Születési hely: Debrecen
+Születési idő: 1990-09-20
+Anyja neve: Tóth Katalin
+Személyi igazolvány száma: 987654CD
+Lakcím: 4024 Debrecen, Fő tér 5.
+
+A mai napon, 2026. március 29-én, Budapesten.
+Tanú 1: Kiss Béla (1022 Budapest, Rózsa u. 10., ID: 112233EF)
+Tanú 2: Molnár Anna (1055 Budapest, Kossuth tér 1., ID: 445566GH)
