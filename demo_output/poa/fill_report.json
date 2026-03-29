@@ -1,0 +1,18 @@
+{
+  "form_type_detected": "power_of_attorney",
+  "fields_requested": [
+    "principal",
+    "agent",
+    "taxpayer",
+    "case",
+    "tax"
+  ],
+  "fields_filled": 38,
+  "warnings": [],
+  "source_files": [
+    "input_data/demo_case/tax_details.md",
+    "input_data/demo_case/case_info.json",
+    "input_data/demo_case/id_card.png",
+    "input_data/demo_case/additional_info.txt"
+  ]
+}

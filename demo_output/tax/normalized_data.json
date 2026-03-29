@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "form_type_detected": "family_tax_benefit",
+    "source_files": [
+      "input_data/demo_case/tax_details.md",
+      "input_data/demo_case/case_info.json",
+      "input_data/demo_case/id_card.png",
+      "input_data/demo_case/additional_info.txt"
+    ],
+    "notes": []
+  },
+  "people": {
+    "principal": {
+      "full_name": "Kovács János",
+      "birth_place": "Budapest",
+      "birth_date": "1985. 05. 12.",
+      "mother_name": "Szabó Ilona",
+      "id_number": "AA1234567",
+      "address": "1111 Budapest, Példa utca 1.",
+      "tax_id": "8412345678"
+    },
+    "agent": {
+      "full_name": "Nagy Erzsébet",
+      "birth_place": "Debrecen",
+      "birth_date": "1990-09-20",
+      "mother_name": "Tóth Katalin",
+      "id_number": "987654CD",
+      "address": "4024 Debrecen, Fő tér 5.",
+      "tax_id": ""
+    },
+    "taxpayer": {
+      "full_name": "Kovács János",
+      "birth_place": "",
+      "birth_date": "",
+      "mother_name": "",
+      "id_number": "",
+      "address": "",
+      "tax_id": "8412345678"
+    },
+    "partner": {
+      "full_name": "Nagy Erzsébet",
+      "birth_place": "",
+      "birth_date": "",
+      "mother_name": "",
+      "id_number": "",
+      "address": "",
+      "tax_id": "8912345678"
+    },
+    "witness_1": {
+      "full_name": "Kiss Béla",
+      "address": "1022 Budapest, Rózsa u. 10.",
+      "id_number": "112233EF"
+    },
+    "witness_2": {
+      "full_name": "Molnár Anna",
+      "address": "1055 Budapest, Kossuth tér 1.",
+      "id_number": "445566GH"
+    }
+  },
+  "case": {
+    "authority_name": "Budapesti Kormányhivatal",
+    "case_type": "Adóügyintézés",
+    "city": "Budapest",
+    "date": "2026. március 29."
+  },
+  "tax": {
+    "submission_year": "2026",
+    "is_modified": false,
+    "joint_claim": true,
+    "hungary_only_claim": false,
+    "disable_contribution_discount": false,
+    "discount_amount_huf": "",
+    "beneficiary_count": "",
+    "employer_name": "",
+    "employer_tax_number": "",
+    "partner_employer_name": "",
+    "partner_employer_tax_number": "",
+    "dependents": [
+      {
+        "tax_id": "8512345678",
+        "name": "Kovács Péter",
+        "em_code": "",
+        "jj_code": "",
+        "change_date": ""
+      },
+      {
+        "tax_id": "8612345678",
+        "name": "Kovács Anna",
+        "em_code": "",
+        "jj_code": "",
+        "change_date": ""
+      }
+    ]
+  }
+}
