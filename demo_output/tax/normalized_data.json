@@ -7,7 +7,10 @@
       "input_data/demo_case/id_card.png",
       "input_data/demo_case/additional_info.txt"
     ],
-    "notes": []
+    "notes": [],
+    "conflicts": [
+      "ID number discrepancy: Source 1 states principal ID number as 999999XX, while ID card (Source 2) shows AA1234567."
+    ]
   },
   "people": {
     "principal": {
@@ -21,11 +24,11 @@
     },
     "agent": {
       "full_name": "Nagy Erzsébet",
-      "birth_place": "Debrecen",
+      "birth_place": "",
       "birth_date": "1990-09-20",
-      "mother_name": "Tóth Katalin",
+      "mother_name": "",
       "id_number": "987654CD",
-      "address": "4024 Debrecen, Fő tér 5.",
+      "address": "",
       "tax_id": ""
     },
     "taxpayer": {
@@ -67,28 +70,28 @@
     "submission_year": "2026",
     "is_modified": false,
     "joint_claim": true,
-    "hungary_only_claim": false,
+    "hungary_only_claim": true,
     "disable_contribution_discount": false,
     "discount_amount_huf": "",
-    "beneficiary_count": "",
-    "employer_name": "",
-    "employer_tax_number": "",
-    "partner_employer_name": "",
-    "partner_employer_tax_number": "",
+    "beneficiary_count": "2",
+    "employer_name": "Példa Kft.",
+    "employer_tax_number": "12345678-1-11",
+    "partner_employer_name": "Teszt Zrt.",
+    "partner_employer_tax_number": "87654321-2-22",
     "dependents": [
       {
         "tax_id": "8512345678",
         "name": "Kovács Péter",
-        "em_code": "",
-        "jj_code": "",
-        "change_date": ""
+        "em_code": "1",
+        "jj_code": "a",
+        "change_date": "2026.01.01"
       },
       {
         "tax_id": "8612345678",
         "name": "Kovács Anna",
-        "em_code": "",
-        "jj_code": "",
-        "change_date": ""
+        "em_code": "1",
+        "jj_code": "b",
+        "change_date": "2026.02.15"
       }
     ]
   }

@@ -37,7 +37,7 @@ class Tax:
     submission_year: str = ""
     is_modified: bool = False
     joint_claim: bool = False
-    hungary_only_claim: bool = False
+    hungary_only_claim: bool = True
     disable_contribution_discount: bool = False
     discount_amount_huf: str = ""
     beneficiary_count: str = ""
@@ -52,6 +52,7 @@ class Meta:
     form_type_detected: str = ""
     source_files: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    conflicts: List[str] = field(default_factory=list)
 
 @dataclass
 class NormalizedData:
@@ -91,9 +92,9 @@ class NormalizedData:
                 tax_data["submission_year"] = tax_data.pop("year")
             
             deps = tax_data.pop("dependents", [])
-            valid_tax_data = {k: v for k, v in tax_data.items() if k in Tax.__dataclass_fields__}
+            valid_tax_data = {k: v for k, v in tax_data.items() if k in Tax.__dataclass_fields__ and v is not None}
             res.tax = Tax(**valid_tax_data)
             for d in deps:
                 if isinstance(d, dict):
-                    res.tax.dependents.append(Dependent(**{k: v for k, v in d.items() if k in Dependent.__dataclass_fields__}))
+                    res.tax.dependents.append(Dependent(**{k: v for k, v in d.items() if k in Dependent.__dataclass_fields__ and v is not None}))
         return res

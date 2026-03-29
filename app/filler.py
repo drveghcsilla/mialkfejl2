@@ -38,8 +38,16 @@ class FormAdapter:
                 "tax.submission_year": ["benyújtásának éve:"],
                 "people.taxpayer.full_name": ["magánszemély neve:"],
                 "people.taxpayer.tax_id": ["adóazonosító jele:"],
-                "tax.joint_claim": ["együtt érvényesítjük", "közös érvényesítés"],
-                "tax.is_modified": ["módosító nyilatkozat"],
+                "tax.hungary_only_claim": ["Magyarországon érvényesíteni", "csak Magyarországon"],
+                "tax.disable_contribution_discount": ["nem kérem a családi járulékkedvezmény", "mellőzése"],
+                "tax.discount_amount_huf": ["forint összegben kívánom"],
+                "tax.beneficiary_count": ["fő kedvezményezett eltartott után"],
+                "people.partner.full_name": ["neve "],
+                "people.partner.tax_id": ["adóazonosító jele:"],
+                "tax.partner_employer_name": ["kifizetője megnevezése:"],
+                "tax.partner_employer_tax_number": ["adószáma:"],
+                "tax.employer_name": ["kifizető megnevezése:"],
+                "tax.employer_tax_number": ["adószáma:"],
                 "tax.dependents.name": ["név"],
                 "tax.dependents.tax_id": ["adóazonosító jel"],
                 "tax.dependents.em_code": ["em*"],
@@ -52,6 +60,7 @@ class FormFiller:
     def __init__(self):
         self.current_section = None
         self.current_dep_idx = 0
+        self.runs_to_replace = []
 
     def detect_type(self, doc_path: Path) -> str:
         try:
@@ -63,13 +72,17 @@ class FormFiller:
         except: return "unknown"
 
     def fill(self, template_path: Path, data: NormalizedData, output_path: Path):
-        form_type = data.meta.form_type_detected
+        form_type = self.detect_type(template_path)
         labels_map = FormAdapter.get_concept_labels(form_type)
+        
+        if form_type == "family_tax_benefit":
+            if data.tax.beneficiary_count and data.tax.discount_amount_huf:
+                data.tax.discount_amount_huf = ""
+                
         doc = Document(template_path)
         self.current_section = None
         self.current_dep_idx = 0
         
-        # Process all paragraphs, including those in tables if any
         paragraphs = []
         for p in doc.paragraphs: paragraphs.append(p)
         for t in doc.tables:
@@ -80,6 +93,12 @@ class FormFiller:
         for p in paragraphs:
             self._fill_p(p, labels_map, data)
         
+        # APPLY CHANGES
+        for p, text in self.runs_to_replace:
+             if "Magyarországon érvényesíteni" in text:
+                  print(">>> FLUSHING P14 WITH TEXT:", repr(text))
+             p.text = text
+             
         doc.save(output_path)
         logger.info(f"Saved filled DOCX to {output_path}")
 
@@ -87,87 +106,143 @@ class FormFiller:
         text = paragraph.text
         if not text.strip(): return
         t_low = text.lower()
+        original_text = text
         
-        # Section detection
+        # Unify disjointed tax number placeholders
+        if "⎕⎕⎕⎕⎕⎕⎕⎕—⎕—⎕⎕" in text:
+             text = text.replace("⎕⎕⎕⎕⎕⎕⎕⎕—⎕—⎕⎕", "⎕⎕⎕⎕⎕⎕⎕⎕⎕⎕⎕")
         if "tanú 1.:" in t_low: self.current_section = "witness_1"
         elif "tanú 2.:" in t_low: self.current_section = "witness_2"
         elif "meghatalmazom" in t_low: self.current_section = "agent"
         elif "én," in t_low or "alulírott" in t_low: self.current_section = "principal"
+        elif "nyilatkozó magánszemély neve" in t_low: self.current_section = "taxpayer"
         elif "kelt:" in t_low: self.current_section = "signature"
-        elif any(k in t_low for k in ["adóazonosító jel", "eltartottak"]) or "⎕⎕⎕⎕⎕⎕" in text:
+        elif "jogosult házastársa/élettársa" in t_low: self.current_section = "partner"
+        elif "magánszemély munkáltatójaként" in t_low: self.current_section = "employer"
+        elif "eltartottak adatai" in t_low or "adóazonosító jel \tnév" in t_low:
              self.current_section = "tax_details"
 
-        original_text = text
-        person_prefix = f"people.{self.current_section}." if self.current_section and self.current_section not in ["tax_details", "signature"] else ""
-        P_RE = r"([\.…_\-]{3,}|⎕+)"
+        # Unify disjointed tax number placeholders
+        if "⎕⎕⎕⎕⎕⎕⎕⎕—⎕—⎕⎕" in text:
+             text = text.replace("⎕⎕⎕⎕⎕⎕⎕⎕—⎕—⎕⎕", "⎕⎕⎕⎕⎕⎕⎕⎕⎕⎕⎕")
+
+        person_prefix = f"people.{self.current_section}." if self.current_section and self.current_section not in ["tax_details", "signature", "employer"] else ""
+        P_RE = r"([\.…_\-]{2,}|⎕+)"
 
         if text.strip().startswith(('.', '…')) and self.current_section == "agent":
              val = self._get_data_value(data, "people.agent.full_name")
-             if val: text = re.sub(r"^[\s\.…_\-]{3,}", f" {val} ", text)
+             if val: 
+                  text = re.sub(P_RE, self._get_formatted_val(val, "……………….", "people.agent.full_name"), text, count=1)
+                  self.runs_to_replace.append((p, text))
+                  return
+                  
+        if "adóazonosító jele:" in t_low and "\t⎕" in text:
+             val = self._get_data_value(data, "tax.is_modified")
+             text = text.replace("\t⎕", "\t" + self._get_formatted_val(val, "⎕", "tax.is_modified"), 1)
+             
+        if "egyedül ⎕" in text and "közösen ⎕" in text:
+             val = self._get_data_value(data, "tax.joint_claim")
+             if val is not None and str(val).strip() != "" and str(val).strip() != "None":
+                  if val: text = text.replace("egyedül ⎕", "egyedül  ⎕").replace("közösen ⎕", "közösen  ☒")
+                  else: text = text.replace("egyedül ⎕", "egyedül  ☒").replace("közösen ⎕", "közösen  ⎕")
 
-        filled_any = False; used_ids = set()
-        while True:
-            changed = False
-            ms = list(re.finditer(P_RE, text))
-            if not ms: break
-            
-            # POSITIONAL DATE LINE
-            if self.current_section == "signature" and "év" in t_low and len(ms) >= 3:
-                 v_city = self._get_data_value(data, "case.city")
-                 v_year = self._get_data_value(data, "case.date", "év")
-                 v_mo = self._get_data_value(data, "case.date", "hónap")
-                 v_day = self._get_data_value(data, "case.date", "nap")
-                 vals = [v_city, v_year, v_mo, v_day]
-                 nt = text
-                 for v in vals:
-                       curr_ms = list(re.finditer(P_RE, nt))
-                       if curr_ms and v:
-                            m = curr_ms[0]
-                            nt = nt[:m.start()] + f" {v} " + nt[m.end():]
-                 text = nt; filled_any = True; break
+        filled_any = False; used_ids = set(); dep_row_filled = False
+        changed_in_pass = True
+        
+        while changed_in_pass:
+             changed_in_pass = False; scores = []
+             for ms in re.finditer(P_RE, text):
+                  ps, pe = ms.span()
+                  
+                  # POSITIVE DATE LINE
+             if not changed_in_pass: break
 
-            # POSITIONAL DEPENDENT ROW
-            if self.current_section == "tax_details" and ("⎕⎕⎕⎕⎕⎕" in text or "jj**" in t_low) and len(ms) >= 2:
-                 tid = self._get_data_value(data, "tax.dependents.tax_id")
-                 nm = self._get_data_value(data, "tax.dependents.name")
-                 if tid or nm:
-                      nt = text
-                      mg = list(re.finditer(r"⎕{8,12}", nt))
-                      if mg and tid: nt = nt[:mg[0].start()] + self._get_formatted_val(tid, mg[0].group(0)) + nt[mg[0].end():]
-                      md = list(re.finditer(r"[\.…]{5,}", nt))
-                      if md and nm: nt = nt[:md[0].start()] + f" {nm} " + nt[md[0].end():]
-                      text = nt; filled_any = True; break
+        ms = list(re.finditer(P_RE, text))
+        if ms and self.current_section == "signature" and "év" in t_low and len(ms) >= 3:
+             vals = [self._get_data_value(data, "case.city"), self._get_data_value(data, "case.date", "év"),
+                     self._get_data_value(data, "case.date", "hónap"), self._get_data_value(data, "case.date", "nap")]
+             idx = 0
+             def date_sub(m):
+                  nonlocal idx; v = vals[idx] if idx < len(vals) else ""; idx += 1
+                  return f" {v} " if v else m.group(1)
+             text = re.sub(P_RE, date_sub, text, count=4); filled_any = True
 
-            # Scored fallback
-            scores = []
-            for m in ms:
-                ph = m.group(1); ps, pe = m.start(), m.end()
-                if any(c not in "⎕.…_- " for c in ph): continue 
-                for path, lbls in labels_map.items():
-                    if person_prefix and path.startswith("people.") and not path.startswith(person_prefix): continue
-                    if "tax.dependents" in path: continue
-                    for lbl in lbls:
-                        l_id = f"{path}|{lbl}"
-                        if l_id in used_ids: continue
-                        for lm in re.finditer(re.escape(lbl), text, re.IGNORECASE):
-                            d = 999
-                            if lm.end() <= ps: d = ps - lm.end()
-                            elif lm.start() >= pe: d = lm.start() - pe
-                            else: continue
-                            if d < 40:
-                                b = text[min(lm.end(), pe):max(lm.start(), ps)]
-                                if not re.search(r"[\.…_]{3,}", b):
-                                    scores.append({"score": d, "m": m, "path": path, "label": lbl, "id": l_id})
-            
-            scores.sort(key=lambda x: x["score"])
-            if scores:
-                best = scores[0]; val = self._get_data_value(data, best["path"], context_label=best["label"])
-                if val is not None:
-                    text = text[:best["m"].start()] + self._get_formatted_val(val, best["m"].group(1)) + text[best["m"].end():]
-                    used_ids.add(best["id"]); changed = True; filled_any = True
-            if not changed: break
+        # POSITIONAL DEPENDENT ROW
+        elif ms and self.current_section == "tax_details" and ("⎕⎕⎕⎕⎕⎕" in original_text) and len(ms) >= 3:
+             tid = self._get_data_value(data, "tax.dependents.tax_id")
+             nm = self._get_data_value(data, "tax.dependents.name")
+             em = self._get_data_value(data, "tax.dependents.em_code")
+             jj = self._get_data_value(data, "tax.dependents.jj_code")
+             dy = self._get_data_value(data, "tax.dependents.change_date", "év")
+             dm = self._get_data_value(data, "tax.dependents.change_date", "hónap")
+             dd = self._get_data_value(data, "tax.dependents.change_date", "nap")
+             
+             if tid or nm or em or jj:
+                  dt_keys = ["tax.dependents.tax_id", "tax.dependents.name", "tax.dependents.em_code", "tax.dependents.jj_code", "tax.dependents.change_date", "tax.dependents.change_date", "tax.dependents.change_date"]
+                  dt_idx = 0
+                  def dep_sub(m):
+                      nonlocal dt_idx
+                      path = dt_keys[dt_idx]
+                      v = self._get_data_value(data, path)
+                      if path == "tax.dependents.change_date":
+                           parts = re.split(r'[\.\-\s]+', str(v)) if v else []
+                           if dt_idx == 4: # First date placeholder (YY)
+                                v = parts[0][-2:] if len(parts) > 0 and len(parts[0]) >= 2 else ""
+                           elif dt_idx == 5: # Second (MM)
+                                v = parts[1] if len(parts) > 1 else ""
+                           elif dt_idx == 6: # Third (DD)
+                                v = parts[2] if len(parts) > 2 else ""
+                      dt_idx += 1
+                      return self._get_formatted_val(v, m.group(1), path)
+                  text = re.sub(P_RE, dep_sub, text, count=7)
+                  filled_any = True; dep_row_filled = True
+             else:
+                  # Clear out the unpopulated dependent row placeholders for visual cleanliness
+                  text = re.sub(r"⎕", " ", text)
+                  text = re.sub(r"[\.…_\-]{2,}", lambda m: " " * len(m.group(0)), text)
+                  filled_any = True; dep_row_filled = True
 
-        # Tabbed signature block
+        else:
+             # Scored fallback
+             while True:
+                  changed_in_pass = False
+                  curr_ms = list(re.finditer(P_RE, text))
+                  if not curr_ms: break
+                  scores = []
+                  for m in curr_ms:
+                       ph = m.group(1); ps, pe = m.start(), m.end()
+                       if any(c not in "⎕.…_- " for c in ph): continue 
+                       for path, lbls in labels_map.items():
+                            if person_prefix and path.startswith("people.") and not path.startswith(person_prefix): continue
+                            if self.current_section == "partner" and path.startswith("tax.employer_"): continue
+                            if self.current_section == "employer" and path.startswith("tax.partner_employer_"): continue
+                            if "tax.dependents" in path: continue
+                            for lbl in lbls:
+                                 l_id = f"{path}|{lbl}"
+                                 if l_id in used_ids: continue
+                                 for lm in re.finditer(re.escape(lbl), text, re.IGNORECASE):
+                                      d = 999
+                                      if lm.end() <= ps: d = ps - lm.end()
+                                      elif lm.start() >= pe: d = lm.start() - pe
+                                      else: continue
+                                      
+                                      max_d = 150 if "⎕" in ph else 60
+                                      if d < max_d:
+                                           b = text[min(lm.end(), pe):max(lm.start(), ps)]
+                                           if not re.search(r"[\.…_]{2,}", b):
+                                                scores.append({"score": d, "m": m, "path": path, "label": lbl, "id": l_id})
+                  
+                  scores.sort(key=lambda x: x["score"])
+                  if scores:
+                       best = scores[0]; val = self._get_data_value(data, best["path"], context_label=best["label"])
+                       if val is not None and str(val).strip():
+                            text = text[:best["m"].start()] + self._get_formatted_val(val, best["m"].group(1), best["path"]) + text[best["m"].end():]
+                            used_ids.add(best["id"]); changed_in_pass = True; filled_any = True
+                  if not changed_in_pass: break
+
+        if dep_row_filled:
+             self.current_dep_idx += 1
+        
         if self.current_section == "signature" and "\t" in text:
              pv, av = self._get_data_value(data, "people.principal.full_name"), self._get_data_value(data, "people.agent.full_name")
              if pv or av:
@@ -180,51 +255,79 @@ class FormFiller:
                        else: nps.append(p)
                   text = "\t".join(nps); filled_any = True
 
-        if filled_any and self.current_section == "tax_details" and ("⎕⎕⎕⎕⎕⎕" in text or "jj**" in t_low):
-             self.current_dep_idx += 1
         if text != original_text: paragraph.text = text
 
-    def _get_formatted_val(self, val: Any, placeholder: str) -> str:
+    def _get_formatted_val(self, val: Any, placeholder: str, path: str) -> str:
         if isinstance(val, bool):
-             if "⎕" in placeholder: return " X " if val else "   "
-             return "[X]" if val else "[ ]"
-        sv = str(val); res = []; idx = 0
+             if val: return " ☒" if "⎕" in placeholder else "[x]"
+             else: return " ⎕" if "⎕" in placeholder else "[ ]"
+
+        if val is None or val == "None" or str(val).strip() == "":
+             if "⎕" in placeholder and len(placeholder) <= 2:
+                  return " ⎕"
+             text_len = len(placeholder) if not placeholder.startswith("⎕") else 1
+             return " " * text_len
+
+        sv = str(val)
         if "⎕" in placeholder:
+             # Remove non-alphanumerics so things string cleanly into grids (e.g. 87654321-2-22 -> 87654321222)
+             if any(k in path for k in ["tax_id", "tax_number", "id_number"]):
+                  sv = "".join(c for c in sv if c.isalnum())
+             num_boxes = placeholder.count("⎕")
+             if len(sv) == 4 and num_boxes == 2 and sv.isdigit():
+                  sv = sv[-2:]
+             res = []; idx = 0
              for c in placeholder:
-                  if c == "⎕": res.append(sv[idx] if idx < len(sv) else " "); idx += 1
+                  if c == "⎕": 
+                       ch = sv[idx] if idx < len(sv) else " "
+                       if num_boxes >= 10: res.append(f"{ch}  ") # Extra wide for ID fields
+                       else: res.append(ch)
+                       idx += 1
                   else: res.append(c)
              return "".join(res)
-        return f" {sv} "
+        
+        # Standard text placeholder padding to prevent layout collapse
+        v_str = f" {sv} "
+        if len(v_str) < len(placeholder):
+             return v_str + " " * (len(placeholder) - len(v_str))
+        return v_str
 
     def _get_data_value(self, data: NormalizedData, path: str, context_label: str = "") -> Any:
         try:
             pts = path.split('.'); obj = data
             for pt in pts:
-                if pt == "dependents" and isinstance(obj, list):
+                if isinstance(obj, list):
                      if self.current_dep_idx < len(obj): obj = obj[self.current_dep_idx]
                      else: return None
-                else: obj = obj.get(pt) if isinstance(obj, dict) else getattr(obj, pt)
+                if isinstance(obj, dict):
+                     obj = obj.get(pt)
+                else: obj = getattr(obj, pt)
             if "birth_date" in path:
                 pl = self._get_data_value_raw(data, path.replace("birth_date", "birth_place"))
                 return f"{pl}, {obj}" if pl and obj else (obj or pl)
-            if path == "case.date" and context_label:
+            if ("date" in path or "időpontja" in path) and context_label:
                 ds = str(obj); m = re.search(r"(\d{4})[\.\s]+([^\s\.]+?)[\.\s]+(\d{1,2})", ds)
                 if m:
-                    if "év" in context_label: return m.group(1)
-                    if "hónap" in context_label: return m.group(2)
-                    if "nap" in context_label: return m.group(3)
-                p = ds.split('.')
-                if "év" in context_label: return p[0].strip() if len(p)>0 else ""
-                if "hónap" in context_label: return p[1].strip().split(' ')[0] if len(p)>1 else ""
-                if "nap" in context_label: 
-                     if len(p)>1 and ' ' in p[1].strip(): return p[1].strip().split(' ')[1]
-                     return p[2].strip() if len(p)>2 else ""
+                    if "év" in context_label: return m.group(1).strip()
+                    if "hónap" in context_label: return m.group(2).strip()
+                    if "nap" in context_label: return m.group(3).strip()
+                p = [x.strip() for x in ds.replace('-', '.').split('.')]
+                if len(p) >= 3:
+                     if "év" in context_label: return p[0]
+                     if "hónap" in context_label: return p[1]
+                     if "nap" in context_label: return p[2]
             return obj
         except: return None
 
     def _get_data_value_raw(self, data: NormalizedData, path: str) -> Any:
         try:
             pts = path.split('.'); obj = data
-            for pt in pts: obj = obj.get(pt) if isinstance(obj, dict) else getattr(obj, pt)
+            for pt in pts:
+                if isinstance(obj, list):
+                     if self.current_dep_idx < len(obj): obj = obj[self.current_dep_idx]
+                     else: return None
+                if isinstance(obj, dict):
+                     obj = obj.get(pt)
+                else: obj = getattr(obj, pt)
             return obj
         except: return None

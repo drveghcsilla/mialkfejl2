@@ -7,8 +7,11 @@
     "case",
     "tax"
   ],
-  "fields_filled": 38,
+  "fields_filled": 48,
   "warnings": [],
+  "conflicts": [
+    "ID number discrepancy: Source 1 states principal ID number as 999999XX, while ID card (Source 2) shows AA1234567."
+  ],
   "source_files": [
     "input_data/demo_case/tax_details.md",
     "input_data/demo_case/case_info.json",

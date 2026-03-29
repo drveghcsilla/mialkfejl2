@@ -422,3 +422,49 @@ After creating the project:
 - ensure fill_report.json tracks source provenance and field conflicts deterministically
 - keep the codebase compact; if needed, merge tiny modules instead of creating too many files
 - do not let the Gemini model invent the normalized JSON structure at runtime; it must fill a predefined schema
+
+## Adjustments
+Please revise the implementation and demo data to align with the actual supported form fields.
+
+Important corrections:
+
+1. Family tax benefit form:
+The dependent rows in the target form do NOT primarily require birth dates.
+They require:
+- tax_id
+- name
+- EM code
+- JJ code
+- change_date
+
+Update the extraction logic, normalized mapping, and form adapter accordingly.
+
+2. The current tax demo input is incomplete / partially incorrect:
+- JJ should not be numeric 0 for the current dependent examples
+- use a realistic JJ code such as "a" where appropriate
+- add change_date for each dependent
+- add explicit values for:
+  - hungary_only_claim
+  - disable_contribution_discount
+  - discount_amount_huf
+  - beneficiary_count
+
+3. Update the demo input data in input_data/demo_case/ so that the tax form can be filled more realistically.
+Keep all demo data fictional.
+
+4. Keep the power-of-attorney demo flow:
+- principal data may come from the ID card image plus structured files
+- agent / witnesses / city / date come from text files
+- case authority and case type come from JSON/text input
+
+5. If the current code assumes dependent birth dates are required for the family tax form, remove that assumption.
+
+6. Preserve the fixed normalized JSON schema, but improve the extraction and adapter logic so the family-tax form is filled from the correct fields.
+
+7. Log field conflicts explicitly.
+If the ID card image and case_info.json disagree on the principal ID number, do not silently ignore it. Choose deterministically and record the conflict in fill_report.json.
+
+8. After changes:
+- regenerate demo outputs for both forms
+- rerun smoke tests
+- update README if the demo input format changed

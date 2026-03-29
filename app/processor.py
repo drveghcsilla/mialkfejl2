@@ -59,6 +59,7 @@ class FormProcessor:
             "fields_requested": self._get_schema_fields(),
             "fields_filled": self._count_filled_fields(data),
             "warnings": data.meta.notes,
+            "conflicts": data.meta.conflicts,
             "source_files": data.meta.source_files
         }
         

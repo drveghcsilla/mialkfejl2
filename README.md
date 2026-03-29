@@ -5,7 +5,7 @@ A practical university-project-grade application for agentic DOCX form understan
 ## Architecture
 - **Loader**: Scans `input_data/` for .txt, .md, .docx, .pdf, and image files.
 - **Engine**: Uses Gemini (`google-genai`) to extract structured data into a fixed JSON schema.
-- **Processor**: Handles deterministic merging and provenance tracking.
+- **Processor**: Handles deterministic merging, provenance tracking, and explicit **conflict management**.
 - **Filler**: Detects form types and fills placeholders in DOCX templates using `python-docx`.
 
 ## Supported Form Families

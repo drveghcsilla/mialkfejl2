@@ -24,23 +24,25 @@ class GeminiEngine:
 
         # Build multimodal parts
         parts = []
-        instructions = "Extract information from the provided documents and images into a unified JSON schema.\n"
-        instructions += "If a document is an image (like an ID card), extract all person details (name, birth info, mother's name, ID number).\n"
-        instructions += "Look for city and date (e.g., 'Kelt: Budapest, 2026. március 29.') and place them in case.city and case.date.\n"
-        instructions += "Check for Tax ID numbers (8-10 digits) and submission year.\n"
+        instructions = "Extract information from the provided documents and images into a unified JSON.\n"
+        instructions += "If an image (like an ID card) and text files disagree on any field (e.g. principal ID number), pick the most likely correct one deterministically, but record the conflict explicitly in 'meta.conflicts' outlining the discrepancy.\n"
+        instructions += "For Family Tax Benefit forms, dependents ONLY require: tax_id, name, em_code, jj_code, and change_date. Do NOT try to extract or place birth dates for dependents.\n"
         instructions += "Schema structure:\n"
         instructions += """
         {
+          "meta": {
+            "conflicts": []
+          },
           "people": {
             "principal": { "full_name": "", "birth_place": "", "birth_date": "", "mother_name": "", "id_number": "", "address": "", "tax_id": "" },
-            "agent": { ... },
+            "agent": { "full_name": "", "id_number": "", "birth_date": "" },
             "witness_1": { "full_name": "", "address": "", "id_number": "" },
             "witness_2": { "full_name": "", "address": "", "id_number": "" },
             "taxpayer": { "full_name": "", "tax_id": "" },
             "partner": { "full_name": "", "tax_id": "" }
           },
           "case": { "authority_name": "", "case_type": "", "city": "", "date": "" },
-          "tax": { "submission_year": "", "joint_claim": false, "dependents": [{"name": "", "tax_id": ""}] }
+          "tax": { "submission_year": "", "joint_claim": false, "hungary_only_claim": false, "disable_contribution_discount": false, "discount_amount_huf": "", "beneficiary_count": "", "employer_name": "", "employer_tax_number": "", "partner_employer_name": "", "partner_employer_tax_number": "", "dependents": [{"name": "", "tax_id": "", "em_code": "", "jj_code": "", "change_date": ""}] }
         }
         """
         parts.append(instructions)
