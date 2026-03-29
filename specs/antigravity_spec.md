@@ -415,3 +415,10 @@ After creating the project:
    - form/csaladi_kedvezmeny.docx with input_data/demo_case
 4. fix obvious issues
 5. then return only concise final status
+
+## Adjustments
+- use the current official Gemini Python SDK: google-genai instead of google-generativeai
+- add an explicit schema module for the fixed normalized JSON structure, default object creation, and validation
+- ensure fill_report.json tracks source provenance and field conflicts deterministically
+- keep the codebase compact; if needed, merge tiny modules instead of creating too many files
+- do not let the Gemini model invent the normalized JSON structure at runtime; it must fill a predefined schema
